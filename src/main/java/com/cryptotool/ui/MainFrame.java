@@ -1,60 +1,51 @@
 package com.cryptotool.ui;
 
-import com.cryptotool.ui.panel.CipherPanel;
-
 import javax.swing.*;
+import java.awt.*;
 
 public class MainFrame extends JFrame {
-    private CipherPanel cipherPanel;
+    private JTabbedPane tabbedPane;
+    private JPanel truyenThongPanel;
+    private JPanel hienDaiPanel;
+    private JPanel rsaPanel;
+    private JPanel bamPanel;
 
     public MainFrame() {
-        setTitle("CryptoTool - Cryptography Tool");
+        setTitle("Công cụ Mã hóa - CryptoTool");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1000, 700);
         setLocationRelativeTo(null);
         setResizable(true);
 
-        // Tạo menu bar
-        createMenuBar();
-
-        // Tạo cipher panel
-        cipherPanel = new CipherPanel();
-        add(cipherPanel);
+        initComponents();
     }
 
-    /**
-     * Tạo menu bar
-     */
-    private void createMenuBar() {
-        JMenuBar menuBar = new JMenuBar();
+    private void initComponents() {
+        tabbedPane = new JTabbedPane();
 
-        // Menu File
-        JMenu fileMenu = new JMenu("File");
-        JMenuItem exitItem = new JMenuItem("Exit");
-        exitItem.addActionListener(e -> System.exit(0));
-        fileMenu.add(exitItem);
+        // Tab 1: Mã hóa Truyền thống
+        truyenThongPanel = new TraditionalEncryptionPanel();
+        tabbedPane.addTab("Truyền thống", truyenThongPanel);
 
-        // Menu Help
-        JMenu helpMenu = new JMenu("Help");
-        JMenuItem aboutItem = new JMenuItem("About");
-        aboutItem.addActionListener(e -> showAboutDialog());
-        helpMenu.add(aboutItem);
+        // Tab 2: Mã hóa Hiện đại
+        hienDaiPanel = new ModernEncryptionPanel();
+        tabbedPane.addTab("Hiện đại", hienDaiPanel);
 
-        menuBar.add(fileMenu);
-        menuBar.add(helpMenu);
+        // Tab 3: RSA
+        rsaPanel = new RSAPanel();
+        tabbedPane.addTab("RSA", rsaPanel);
 
-        setJMenuBar(menuBar);
+        // Tab 4: Bắm (Hash)
+        bamPanel = new HashPanel();
+        tabbedPane.addTab("Bắm", bamPanel);
+
+        add(tabbedPane);
     }
 
-    /**
-     * Hiển thị dialog About
-     */
-    private void showAboutDialog() {
-        JOptionPane.showMessageDialog(
-                this,
-                "CryptoTool v1.0\n\nA comprehensive cryptography tool for classic and modern ciphers.",
-                "About CryptoTool",
-                JOptionPane.INFORMATION_MESSAGE
-        );
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            MainFrame frame = new MainFrame();
+            frame.setVisible(true);
+        });
     }
 }
