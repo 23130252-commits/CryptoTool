@@ -4,6 +4,7 @@ import com.cryptotool.service.hash.HashService;
 import com.cryptotool.util.FileUtil;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.io.File;
 
 public class HashPanel extends JPanel {
@@ -183,7 +184,7 @@ public class HashPanel extends JPanel {
             return;
         }
         StringSelection selection = new StringSelection(text);
-        java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
         statusLabel.setText("✓ Đã sao chép vào bộ nhớ tạm");
     }
 
