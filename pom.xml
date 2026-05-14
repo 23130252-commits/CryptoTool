@@ -48,7 +48,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.cryptotool.CryptoToolApp</mainClass>
+                            <mainClass>com.cryptotool.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
