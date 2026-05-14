@@ -4,95 +4,137 @@ import com.cryptotool.service.classic.alphabet.Alphabet;
 import com.cryptotool.service.classic.alphabet.AlphabetRepository;
 import com.cryptotool.service.classic.alphabet.AlphabetType;
 
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public class SubstitutionCipher {
-    private Alphabet alphabet;
+    private final Alphabet alphabet;
+    private final SecureRandom random;
+
+    public SubstitutionCipher() {
+        this(AlphabetType.ENGLISH);
+    }
 
     public SubstitutionCipher(AlphabetType alphabetType) {
         this.alphabet = AlphabetRepository.getAlphabet(alphabetType);
+        this.random = new SecureRandom();
     }
 
-    /**
-     * Mã hóa Substitution Cipher
-     * key là chuỗi thay thế, phải có độ dài bằng kích thước bảng chữ cái
-     */
-    public String encrypt(String plaintext, String key) throws Exception {
-        if (key == null || key.isEmpty()) {
-            throw new Exception("Key không được để trống!");
-        }
-        if (key.length() != alphabet.getSize()) {
-            throw new Exception("Key phải có độ dài " + alphabet.getSize() + " ký tự!");
+    public String encrypt(String plaintext, String key) {
+        validateKey(key);
+
+        if (plaintext == null) {
+            throw new IllegalArgumentException("Văn bản cần mã hóa không được null.");
         }
 
-        // Kiểm tra key có chứa tất cả ký tự trong bảng chữ cái không
-        for (int i = 0; i < alphabet.getSize(); i++) {
-            char c = alphabet.getCharAt(i);
-            if (key.indexOf(c) == -1) {
-                throw new Exception("Key phải chứa tất cả ký tự trong bảng chữ cái!");
-            }
-        }
+        plaintext = alphabet.normalizeText(plaintext);
+        key = alphabet.normalizeText(key);
+
+        String originalAlphabet = alphabet.getCharacters();
 
         StringBuilder result = new StringBuilder();
-        for (char c : plaintext.toCharArray()) {
-            if (alphabet.contains(c)) {
-                int index = alphabet.getIndex(c);
-                result.append(key.charAt(index));
-            } else {
-                result.append(c);
+
+        for (char ch : plaintext.toCharArray()) {
+            int index = originalAlphabet.indexOf(ch);
+
+            if (index == -1) {
+                result.append(ch);
+                continue;
             }
+
+            result.append(key.charAt(index));
         }
+
         return result.toString();
     }
 
-    /**
-     * Giải mã Substitution Cipher
-     */
-    public String decrypt(String ciphertext, String key) throws Exception {
-        if (key == null || key.isEmpty()) {
-            throw new Exception("Key không được để trống!");
-        }
-        if (key.length() != alphabet.getSize()) {
-            throw new Exception("Key phải có độ dài " + alphabet.getSize() + " ký tự!");
+    public String decrypt(String ciphertext, String key) {
+        validateKey(key);
+
+        if (ciphertext == null) {
+            throw new IllegalArgumentException("Văn bản cần giải mã không được null.");
         }
 
-        // Tạo key đảo ngược (reverse key)
-        String originalAlphabet = alphabet.getAlphabet();
-        char[] reverseKey = new char[alphabet.getSize()];
+        ciphertext = alphabet.normalizeText(ciphertext);
+        key = alphabet.normalizeText(key);
 
-        for (int i = 0; i < alphabet.getSize(); i++) {
-            char c = key.charAt(i);
-            int origIndex = originalAlphabet.indexOf(c);
-            if (origIndex >= 0) {
-                reverseKey[origIndex] = originalAlphabet.charAt(i);
-            }
-        }
+        String originalAlphabet = alphabet.getCharacters();
 
         StringBuilder result = new StringBuilder();
-        for (char c : ciphertext.toCharArray()) {
-            int index = key.indexOf(c);
-            if (index >= 0) {
-                result.append(reverseKey[index]);
-            } else {
-                result.append(c);
+
+        for (char ch : ciphertext.toCharArray()) {
+            int index = key.indexOf(ch);
+
+            if (index == -1) {
+                result.append(ch);
+                continue;
             }
+
+            result.append(originalAlphabet.charAt(index));
         }
+
         return result.toString();
     }
 
-    /**
-     * Tạo key ngẫu nhiên
-     */
     public String generateRandomKey() {
-        String original = alphabet.getAlphabet();
-        char[] chars = original.toCharArray();
-        
-        // Fisher-Yates shuffle
-        for (int i = chars.length - 1; i > 0; i--) {
-            int j = (int) (Math.random() * (i + 1));
-            char temp = chars[i];
-            chars[i] = chars[j];
-            chars[j] = temp;
+        String characters = alphabet.getCharacters();
+
+        List<Character> charList = new ArrayList<>();
+
+        for (char ch : characters.toCharArray()) {
+            charList.add(ch);
         }
-        
-        return new String(chars);
+
+        Collections.shuffle(charList, random);
+
+        StringBuilder key = new StringBuilder();
+
+        for (char ch : charList) {
+            key.append(ch);
+        }
+
+        return key.toString();
+    }
+
+    private void validateKey(String key) {
+        if (key == null || key.trim().isEmpty()) {
+            throw new IllegalArgumentException("Key Substitution không được để trống.");
+        }
+
+        key = alphabet.normalizeText(key.trim());
+
+        String originalAlphabet = alphabet.getCharacters();
+
+        if (key.length() != originalAlphabet.length()) {
+            throw new IllegalArgumentException(
+                    "Key Substitution phải có độ dài bằng bảng chữ cái: "
+                            + originalAlphabet.length()
+                            + " ký tự. Hiện tại key có "
+                            + key.length()
+                            + " ký tự."
+            );
+        }
+
+        for (char ch : key.toCharArray()) {
+            if (!alphabet.contains(ch)) {
+                throw new IllegalArgumentException(
+                        "Key Substitution chứa ký tự không nằm trong bảng chữ cái: " + ch
+                );
+            }
+        }
+
+        for (int i = 0; i < key.length(); i++) {
+            char current = key.charAt(i);
+
+            for (int j = i + 1; j < key.length(); j++) {
+                if (current == key.charAt(j)) {
+                    throw new IllegalArgumentException(
+                            "Key Substitution bị trùng ký tự: " + current
+                    );
+                }
+            }
+        }
     }
 }

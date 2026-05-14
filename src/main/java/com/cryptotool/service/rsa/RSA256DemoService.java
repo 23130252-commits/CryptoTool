@@ -1,172 +1,153 @@
 package com.cryptotool.service.rsa;
 
-import java.security.*;
-import java.util.Base64;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 
 public class RSA256DemoService {
-    private RSAService rsaService;
+    private static final int PRIME_BIT_LENGTH = 128;
+    private static final BigInteger DEFAULT_E = BigInteger.valueOf(65537);
 
-    /**
-     * Khởi tạo RSA256DemoService
-     */
+    private BigInteger p;
+    private BigInteger q;
+    private BigInteger n;
+    private BigInteger phi;
+    private BigInteger e;
+    private BigInteger d;
+
+    private final SecureRandom random;
+
     public RSA256DemoService() {
-        this.rsaService = new RSAService(2048);
+        this.random = new SecureRandom();
     }
 
-    /**
-     * Tạo cặp khóa RSA
-     */
-    public void generateKeys() throws Exception {
-        rsaService.generateKeyPair();
-    }
+    public void generateKeys() {
+        do {
+            p = BigInteger.probablePrime(PRIME_BIT_LENGTH, random);
+            q = BigInteger.probablePrime(PRIME_BIT_LENGTH, random);
+        } while (p.equals(q));
 
-    /**
-     * Demo: Mã hóa và giải mã
-     */
-    public void demoEncryptDecrypt(String plaintext) throws Exception {
-        System.out.println("========== RSA Encryption Demo ==========");
-        System.out.println("Plaintext: " + plaintext);
+        n = p.multiply(q);
+        phi = p.subtract(BigInteger.ONE).multiply(q.subtract(BigInteger.ONE));
 
-        PublicKey publicKey = rsaService.getPublicKey();
-        PrivateKey privateKey = rsaService.getPrivateKey();
+        e = DEFAULT_E;
 
-        // Mã hóa
-        String ciphertext = rsaService.encrypt(plaintext, publicKey);
-        System.out.println("Ciphertext: " + ciphertext);
-
-        // Giải mã
-        String decrypted = rsaService.decrypt(ciphertext, privateKey);
-        System.out.println("Decrypted: " + decrypted);
-        System.out.println();
-    }
-
-    /**
-     * Demo: Ký và xác minh chữ ký
-     */
-    public void demoSignVerify(String data) throws Exception {
-        System.out.println("========== Digital Signature Demo ==========");
-        System.out.println("Data: " + data);
-
-        PublicKey publicKey = rsaService.getPublicKey();
-        PrivateKey privateKey = rsaService.getPrivateKey();
-
-        // Ký dữ liệu
-        String signature = rsaService.sign(data, privateKey);
-        System.out.println("Signature: " + signature);
-
-        // Xác minh chữ ký
-        boolean verified = rsaService.verify(data, signature, publicKey);
-        System.out.println("Signature Valid: " + verified);
-        System.out.println();
-    }
-
-    /**
-     * Demo: Lưu và tải khóa
-     */
-    public void demoKeyStorage() {
-        System.out.println("========== Key Storage Demo ==========");
-
-        String publicKeyBase64 = rsaService.getPublicKeyBase64();
-        String privateKeyBase64 = rsaService.getPrivateKeyBase64();
-
-        System.out.println("Public Key (Base64):");
-        System.out.println(publicKeyBase64);
-        System.out.println();
-
-        System.out.println("Private Key (Base64):");
-        System.out.println(privateKeyBase64);
-        System.out.println();
-    }
-
-    /**
-     * Demo: Trao đổi khóa giữa hai bên
-     */
-    public void demoKeyExchange() throws Exception {
-        System.out.println("========== Key Exchange Demo ==========");
-
-        // Bên A tạo khóa
-        RSAService serviceA = new RSAService(2048);
-        serviceA.generateKeyPair();
-
-        // Bên B tạo khóa
-        RSAService serviceB = new RSAService(2048);
-        serviceB.generateKeyPair();
-
-        String messageA = "Hello from Party A";
-        String messageB = "Hello from Party B";
-
-        System.out.println("Party A Message: " + messageA);
-        System.out.println("Party B Message: " + messageB);
-        System.out.println();
-
-        // Bên A gửi tin nhắn cho Bên B (mã hóa bằng public key của B)
-        String encryptedFromA = serviceA.encrypt(messageA, serviceB.getPublicKey());
-        System.out.println("Encrypted from A to B: " + encryptedFromA);
-
-        // Bên B giải mã
-        String decryptedByB = serviceB.decrypt(encryptedFromA, serviceB.getPrivateKey());
-        System.out.println("Decrypted by B: " + decryptedByB);
-        System.out.println();
-
-        // Bên B gửi tin nhắn cho Bên A (mã hóa bằng public key của A)
-        String encryptedFromB = serviceB.encrypt(messageB, serviceA.getPublicKey());
-        System.out.println("Encrypted from B to A: " + encryptedFromB);
-
-        // Bên A giải mã
-        String decryptedByA = serviceA.decrypt(encryptedFromB, serviceA.getPrivateKey());
-        System.out.println("Decrypted by A: " + decryptedByA);
-        System.out.println();
-    }
-
-    /**
-     * Demo: Gửi tin nhắn ký với chữ ký số
-     */
-    public void demoSignedMessage() throws Exception {
-        System.out.println("========== Signed Message Demo ==========");
-
-        String message = "This is a certified message";
-
-        PublicKey publicKey = rsaService.getPublicKey();
-        PrivateKey privateKey = rsaService.getPrivateKey();
-
-        // Ký tin nhắn
-        String signature = rsaService.sign(message, privateKey);
-
-        System.out.println("Message: " + message);
-        System.out.println("Signature: " + signature);
-        System.out.println();
-
-        // Người nhận xác minh
-        boolean isValid = rsaService.verify(message, signature, publicKey);
-        System.out.println("Signature is valid: " + isValid);
-
-        // Kiểm tra nếu tin nhắn bị thay đổi
-        String tamperedMessage = "This is a tampered message";
-        boolean isTamperedValid = rsaService.verify(tamperedMessage, signature, publicKey);
-        System.out.println("Tampered message is valid: " + isTamperedValid);
-        System.out.println();
-    }
-
-    /**
-     * Chạy tất cả các demo
-     */
-    public static void main(String[] args) {
-        try {
-            RSA256DemoService demo = new RSA256DemoService();
-
-            // Tạo khóa
-            demo.generateKeys();
-
-            // Chạy các demo
-            demo.demoEncryptDecrypt("Hello, RSA Encryption!");
-            demo.demoSignVerify("Important Data");
-            demo.demoKeyStorage();
-            demo.demoKeyExchange();
-            demo.demoSignedMessage();
-
-            System.out.println("========== All Demos Completed ==========");
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (!e.gcd(phi).equals(BigInteger.ONE)) {
+            e = findValidE(phi);
         }
+
+        d = e.modInverse(phi);
+    }
+
+    public String encrypt(String plaintext) {
+        ensureKeysGenerated();
+
+        if (plaintext == null || plaintext.isEmpty()) {
+            throw new IllegalArgumentException("Dữ liệu cần mã hóa không được để trống.");
+        }
+
+        byte[] plainBytes = plaintext.getBytes(StandardCharsets.UTF_8);
+        BigInteger message = new BigInteger(1, plainBytes);
+
+        if (message.compareTo(n) >= 0) {
+            throw new IllegalArgumentException(
+                    "Dữ liệu quá dài cho RSA 256-bit demo. " +
+                            "Hãy nhập chuỗi ngắn hơn hoặc dùng RSA chuẩn 1024/2048-bit."
+            );
+        }
+
+        BigInteger cipher = message.modPow(e, n);
+
+        return cipher.toString();
+    }
+
+    public String decrypt(String cipherText) {
+        ensureKeysGenerated();
+
+        if (cipherText == null || cipherText.trim().isEmpty()) {
+            throw new IllegalArgumentException("Dữ liệu cần giải mã không được để trống.");
+        }
+
+        BigInteger cipher;
+
+        try {
+            cipher = new BigInteger(cipherText.trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("Ciphertext RSA 256 demo phải là số nguyên.");
+        }
+
+        if (cipher.compareTo(BigInteger.ZERO) < 0 || cipher.compareTo(n) >= 0) {
+            throw new IllegalArgumentException("Ciphertext không hợp lệ với khóa RSA hiện tại.");
+        }
+
+        BigInteger message = cipher.modPow(d, n);
+        byte[] messageBytes = removeLeadingZero(message.toByteArray());
+
+        return new String(messageBytes, StandardCharsets.UTF_8);
+    }
+
+    public String getPublicKeyText() {
+        ensureKeysGenerated();
+
+        return "RSA 256-bit Demo Public Key\n"
+                + "n=" + n + "\n"
+                + "e=" + e;
+    }
+
+    public String getPrivateKeyText() {
+        ensureKeysGenerated();
+
+        return "RSA 256-bit Demo Private Key\n"
+                + "n=" + n + "\n"
+                + "d=" + d + "\n\n"
+                + "Tham số demo:\n"
+                + "p=" + p + "\n"
+                + "q=" + q + "\n"
+                + "phi=" + phi;
+    }
+
+    public String getDetailText() {
+        ensureKeysGenerated();
+
+        return "p = " + p + "\n"
+                + "q = " + q + "\n"
+                + "n = p * q = " + n + "\n"
+                + "phi = (p - 1)(q - 1) = " + phi + "\n"
+                + "e = " + e + "\n"
+                + "d = e^-1 mod phi = " + d;
+    }
+
+    public boolean hasKeys() {
+        return n != null && e != null && d != null;
+    }
+
+    private BigInteger findValidE(BigInteger phi) {
+        BigInteger candidate = BigInteger.valueOf(3);
+
+        while (candidate.compareTo(phi) < 0) {
+            if (candidate.gcd(phi).equals(BigInteger.ONE)) {
+                return candidate;
+            }
+
+            candidate = candidate.add(BigInteger.TWO);
+        }
+
+        throw new IllegalStateException("Không tìm được e hợp lệ.");
+    }
+
+    private void ensureKeysGenerated() {
+        if (!hasKeys()) {
+            throw new IllegalStateException("Chưa tạo khóa RSA 256-bit demo.");
+        }
+    }
+
+    private byte[] removeLeadingZero(byte[] bytes) {
+        if (bytes.length > 1 && bytes[0] == 0) {
+            byte[] result = new byte[bytes.length - 1];
+            System.arraycopy(bytes, 1, result, 0, result.length);
+            return result;
+        }
+
+        return bytes;
     }
 }

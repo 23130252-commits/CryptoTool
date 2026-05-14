@@ -1,164 +1,162 @@
 package com.cryptotool.ui;
 
+import com.cryptotool.service.classic.AffineCipher;
+import com.cryptotool.service.classic.CaesarCipher;
+import com.cryptotool.service.classic.HillCipher;
+import com.cryptotool.service.classic.SubstitutionCipher;
+import com.cryptotool.service.classic.TranspositionCipher;
+import com.cryptotool.service.classic.VigenereCipher;
+import com.cryptotool.service.classic.alphabet.AlphabetType;
 import com.cryptotool.util.FileUtil;
+
 import javax.swing.*;
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.io.File;
 
 public class TraditionalEncryptionPanel extends JPanel {
     private JComboBox<String> algorithmCombo;
+    private JComboBox<String> alphabetCombo;
+
     private JTextArea inputTextArea;
     private JTextArea outputTextArea;
-    private JPanel keyPanel;
+    private JTextArea keyTextArea;
+
+    private JTextField filePathField;
+
     private JButton encryptButton;
     private JButton decryptButton;
     private JButton clearButton;
     private JButton loadFileButton;
     private JButton saveFileButton;
+    private JButton copyButton;
+    private JButton generateKeyButton;
+
     private JFileChooser fileChooser;
     private JLabel statusLabel;
+    private JLabel keyHintLabel;
+
+    private File selectedFile;
 
     public TraditionalEncryptionPanel() {
+        initComponents();
+    }
+
+    private void initComponents() {
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         fileChooser = new JFileChooser();
         fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
 
-        // Panel Top: Chọn thuật toán
-        JPanel topPanel = createTopPanel();
-        add(topPanel, BorderLayout.NORTH);
+        add(createTopPanel(), BorderLayout.NORTH);
+        add(createCenterPanel(), BorderLayout.CENTER);
+        add(createBottomPanel(), BorderLayout.SOUTH);
 
-        // Panel Center: Input/Output
-        JPanel centerPanel = createCenterPanel();
-        add(centerPanel, BorderLayout.CENTER);
-
-        // Panel Bottom: Nút điều khiển
-        JPanel bottomPanel = createBottomPanel();
-        add(bottomPanel, BorderLayout.SOUTH);
+        updateKeyArea();
     }
 
     private JPanel createTopPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        panel.setBorder(BorderFactory.createTitledBorder("Cấu hình mã hóa truyền thống"));
 
-        // Left: Chọn thuật toán
-        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
-        leftPanel.setBorder(BorderFactory.createTitledBorder("Tên Thuật toán"));
+        JPanel optionPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 6, 5, 6);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
         algorithmCombo = new JComboBox<>(new String[]{
-                "Caesar - Mã hóa Caesar",
-                "Substitution - Thay thế đơn giản",
-                "Vigenère - Vigenère Cipher",
-                "Atbash - Atbash Cipher"
+                "Caesar",
+                "Substitution",
+                "Affine",
+                "Vigenere",
+                "Hill",
+                "Transposition"
         });
-        algorithmCombo.setPreferredSize(new Dimension(300, 30));
-        algorithmCombo.addActionListener(e -> updateKeyPanel());
+        algorithmCombo.setPreferredSize(new Dimension(180, 30));
+        algorithmCombo.addActionListener(e -> updateKeyArea());
 
-        leftPanel.add(new JLabel("Chọn thuật toán:"));
-        leftPanel.add(algorithmCombo);
+        alphabetCombo = new JComboBox<>(new String[]{
+                "English",
+                "Vietnamese",
+                "Mixed"
+        });
+        alphabetCombo.setPreferredSize(new Dimension(140, 30));
+        alphabetCombo.addActionListener(e -> updateKeyArea());
 
-        // Right: Key Panel
-        keyPanel = createKeyPanel();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        optionPanel.add(new JLabel("Thuật toán:"), gbc);
 
-        panel.add(leftPanel, BorderLayout.WEST);
+        gbc.gridx = 1;
+        optionPanel.add(algorithmCombo, gbc);
+
+        gbc.gridx = 2;
+        optionPanel.add(new JLabel("Bảng chữ cái:"), gbc);
+
+        gbc.gridx = 3;
+        optionPanel.add(alphabetCombo, gbc);
+
+        JPanel keyPanel = new JPanel(new BorderLayout(5, 5));
+        keyPanel.setBorder(BorderFactory.createTitledBorder("Khóa"));
+
+        keyTextArea = new JTextArea(3, 40);
+        keyTextArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        keyTextArea.setLineWrap(true);
+        keyTextArea.setWrapStyleWord(true);
+
+        keyHintLabel = new JLabel(" ");
+        keyHintLabel.setForeground(new Color(80, 80, 80));
+
+        generateKeyButton = new JButton("Tạo key");
+        generateKeyButton.addActionListener(e -> generateKey());
+
+        JPanel keyTopPanel = new JPanel(new BorderLayout(5, 5));
+        keyTopPanel.add(keyHintLabel, BorderLayout.CENTER);
+        keyTopPanel.add(generateKeyButton, BorderLayout.EAST);
+
+        keyPanel.add(keyTopPanel, BorderLayout.NORTH);
+        keyPanel.add(new JScrollPane(keyTextArea), BorderLayout.CENTER);
+
+        panel.add(optionPanel, BorderLayout.NORTH);
         panel.add(keyPanel, BorderLayout.CENTER);
 
         return panel;
     }
 
-    private JPanel createKeyPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
-        panel.setBorder(BorderFactory.createTitledBorder("Khóa"));
-
-        String algorithm = (String) algorithmCombo.getSelectedItem();
-        if (algorithm == null) {
-            algorithm = "Caesar - Mã hóa Caesar";
-        }
-
-        panel.removeAll();
-
-        if (algorithm.contains("Caesar")) {
-            // Caesar: Chỉ cần shift number
-            JLabel shiftLabel = new JLabel("Dịch chuyển:");
-            JSpinner shiftSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 25, 1));
-            shiftSpinner.setPreferredSize(new Dimension(80, 30));
-            panel.add(shiftLabel);
-            panel.add(shiftSpinner);
-
-        } else if (algorithm.contains("Substitution")) {
-            // Substitution: Key là chuỗi 26 ký tự
-            JLabel keyLabel = new JLabel("Khóa (26 chữ cái):");
-            JTextField keyField = new JTextField("BCDEFGHIJKLMNOPQRSTUVWXYZA", 20);
-            keyField.setPreferredSize(new Dimension(250, 30));
-            JButton generateButton = new JButton("Tạo ngẫu nhiên");
-            generateButton.setPreferredSize(new Dimension(120, 30));
-            generateButton.addActionListener(e -> {
-                keyField.setText(generateRandomSubstitutionKey());
-                statusLabel.setText("✓ Đã tạo khóa ngẫu nhiên");
-            });
-            panel.add(keyLabel);
-            panel.add(keyField);
-            panel.add(generateButton);
-
-        } else if (algorithm.contains("Vigenère")) {
-            // Vigenère: Key là từ khóa
-            JLabel keyLabel = new JLabel("Từ khóa:");
-            JTextField keyField = new JTextField("SECRET", 20);
-            keyField.setPreferredSize(new Dimension(250, 30));
-            panel.add(keyLabel);
-            panel.add(keyField);
-
-        } else if (algorithm.contains("Atbash")) {
-            // Atbash: Không cần khóa (hoặc khóa cố định)
-            JLabel infoLabel = new JLabel("(Atbash không cần khóa - tự động đảo ngược bảng chữ cái)");
-            panel.add(infoLabel);
-        }
-
-        panel.revalidate();
-        panel.repaint();
-        return panel;
-    }
-
-    private void updateKeyPanel() {
-        if (keyPanel != null) {
-            keyPanel.removeAll();
-            keyPanel = createKeyPanel();
-            revalidate();
-            repaint();
-        }
-    }
-
-    private String generateRandomSubstitutionKey() {
-        String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        char[] chars = alphabet.toCharArray();
-        for (int i = chars.length - 1; i > 0; i--) {
-            int randomIndex = (int) (Math.random() * (i + 1));
-            char temp = chars[i];
-            chars[i] = chars[randomIndex];
-            chars[randomIndex] = temp;
-        }
-        return new String(chars);
-    }
-
     private JPanel createCenterPanel() {
         JPanel panel = new JPanel(new GridLayout(1, 2, 10, 10));
 
-        // Input area
         JPanel inputPanel = new JPanel(new BorderLayout(5, 5));
-        inputPanel.setBorder(BorderFactory.createTitledBorder("Văn bản"));
-        inputTextArea = new JTextArea();
-        inputTextArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        inputTextArea.setLineWrap(true);
-        inputPanel.add(new JScrollPane(inputTextArea), BorderLayout.CENTER);
+        inputPanel.setBorder(BorderFactory.createTitledBorder("Văn bản / File đầu vào"));
 
-        // Output area
+        inputTextArea = new JTextArea();
+        inputTextArea.setFont(new Font("Monospaced", Font.PLAIN, 13));
+        inputTextArea.setLineWrap(true);
+        inputTextArea.setWrapStyleWord(true);
+
+        JPanel filePanel = new JPanel(new BorderLayout(5, 5));
+        filePathField = new JTextField();
+        filePathField.setEditable(false);
+
+        loadFileButton = new JButton("Chọn file text");
+        loadFileButton.addActionListener(e -> loadFile());
+
+        filePanel.add(filePathField, BorderLayout.CENTER);
+        filePanel.add(loadFileButton, BorderLayout.EAST);
+
+        inputPanel.add(new JScrollPane(inputTextArea), BorderLayout.CENTER);
+        inputPanel.add(filePanel, BorderLayout.SOUTH);
+
         JPanel outputPanel = new JPanel(new BorderLayout(5, 5));
-        outputPanel.setBorder(BorderFactory.createTitledBorder("Văn bản trả lời"));
+        outputPanel.setBorder(BorderFactory.createTitledBorder("Kết quả"));
+
         outputTextArea = new JTextArea();
-        outputTextArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        outputTextArea.setFont(new Font("Monospaced", Font.PLAIN, 13));
         outputTextArea.setEditable(false);
         outputTextArea.setLineWrap(true);
+        outputTextArea.setWrapStyleWord(true);
+
         outputPanel.add(new JScrollPane(outputTextArea), BorderLayout.CENTER);
 
         panel.add(inputPanel);
@@ -170,7 +168,6 @@ public class TraditionalEncryptionPanel extends JPanel {
     private JPanel createBottomPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
 
-        // Button panel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
         buttonPanel.setBorder(BorderFactory.createTitledBorder("Điều khiển"));
 
@@ -183,24 +180,23 @@ public class TraditionalEncryptionPanel extends JPanel {
         decryptButton.addActionListener(e -> decrypt());
 
         clearButton = new JButton("Xóa");
-        clearButton.setPreferredSize(new Dimension(100, 35));
+        clearButton.setPreferredSize(new Dimension(90, 35));
         clearButton.addActionListener(e -> clear());
 
-        loadFileButton = new JButton("Tải tệp");
-        loadFileButton.setPreferredSize(new Dimension(100, 35));
-        loadFileButton.addActionListener(e -> loadFile());
-
-        saveFileButton = new JButton("Lưu tệp");
-        saveFileButton.setPreferredSize(new Dimension(100, 35));
+        saveFileButton = new JButton("Lưu kết quả");
+        saveFileButton.setPreferredSize(new Dimension(120, 35));
         saveFileButton.addActionListener(e -> saveFile());
+
+        copyButton = new JButton("Sao chép");
+        copyButton.setPreferredSize(new Dimension(100, 35));
+        copyButton.addActionListener(e -> copyResult());
 
         buttonPanel.add(encryptButton);
         buttonPanel.add(decryptButton);
         buttonPanel.add(clearButton);
-        buttonPanel.add(loadFileButton);
         buttonPanel.add(saveFileButton);
+        buttonPanel.add(copyButton);
 
-        // Status bar
         JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         statusLabel = new JLabel("Sẵn sàng");
         statusPanel.add(statusLabel);
@@ -211,271 +207,394 @@ public class TraditionalEncryptionPanel extends JPanel {
         return panel;
     }
 
-    private void encrypt() {
-        String input = inputTextArea.getText();
-        if (input.isEmpty()) {
-            showError("Vui lòng nhập văn bản");
+    private void updateKeyArea() {
+        String algorithm = getSelectedAlgorithm();
+
+        if (keyTextArea == null || keyHintLabel == null || alphabetCombo == null) {
             return;
         }
 
-        String algorithm = (String) algorithmCombo.getSelectedItem();
+        generateKeyButton.setEnabled(false);
+        keyTextArea.setEditable(true);
+        alphabetCombo.setEnabled(true);
 
-        // Lấy khóa từ keyPanel
-        Component[] components = keyPanel.getComponents();
-        String key = extractKeyFromPanel();
+        switch (algorithm) {
+            case "Caesar":
+                keyHintLabel.setText("Key Caesar: nhập số dịch k. Ví dụ: 3");
+                keyTextArea.setText("3");
+                break;
 
-        if (key == null || key.isEmpty()) {
-            showError("Vui lòng nhập khóa");
+            case "Substitution":
+                keyHintLabel.setText("Key Substitution: bảng thay thế có độ dài bằng bảng chữ cái.");
+                generateKeyButton.setEnabled(true);
+                keyTextArea.setText("");
+                break;
+
+            case "Affine":
+                keyHintLabel.setText("Key Affine: nhập dạng a,b. Ví dụ: 5,8. Điều kiện gcd(a,n)=1.");
+                keyTextArea.setText("5,8");
+                break;
+
+            case "Vigenere":
+                keyHintLabel.setText("Key Vigenere: nhập từ khóa. Ví dụ: SECRET");
+                keyTextArea.setText("SECRET");
+                break;
+
+            case "Hill":
+                keyHintLabel.setText("Key Hill 2x2: nhập 4 số dạng a,b,c,d. Ví dụ: 3,3,2,5. Chỉ dùng English A-Z.");
+                keyTextArea.setText("3,3,2,5");
+                alphabetCombo.setSelectedItem("English");
+                alphabetCombo.setEnabled(false);
+                break;
+
+            case "Transposition":
+                keyHintLabel.setText("Key Transposition: nhập số hàng Rail Fence. Ví dụ: 3. Hoặc key cột dạng 3,1,4,2.");
+                keyTextArea.setText("3");
+                alphabetCombo.setEnabled(false);
+                break;
+
+            default:
+                keyHintLabel.setText("Nhập key.");
+                keyTextArea.setText("");
+                break;
+        }
+
+        setStatus("Đã chọn thuật toán: " + algorithm);
+    }
+
+    private void generateKey() {
+        String algorithm = getSelectedAlgorithm();
+
+        if (!"Substitution".equals(algorithm)) {
+            showError("Chỉ Substitution hỗ trợ tạo key ngẫu nhiên.");
             return;
         }
 
         try {
-            String result = "";
-
-            if (algorithm.contains("Caesar")) {
-                int shift = Integer.parseInt(key);
-                result = caesarEncrypt(input, shift);
-                outputTextArea.setText(result);
-                statusLabel.setText("✓ Mã hóa Caesar thành công (Dịch: " + shift + ")");
-
-            } else if (algorithm.contains("Substitution")) {
-                result = substitutionEncrypt(input, key);
-                outputTextArea.setText(result);
-                statusLabel.setText("✓ Mã hóa Thay thế thành công");
-
-            } else if (algorithm.contains("Vigenère")) {
-                result = vigenereEncrypt(input, key);
-                outputTextArea.setText(result);
-                statusLabel.setText("✓ Mã hóa Vigenère thành công");
-
-            } else if (algorithm.contains("Atbash")) {
-                result = atbashEncrypt(input);
-                outputTextArea.setText(result);
-                statusLabel.setText("✓ Mã hóa Atbash thành công");
-            }
+            SubstitutionCipher cipher = new SubstitutionCipher(getSelectedAlphabetType());
+            keyTextArea.setText(cipher.generateRandomKey());
+            setStatus("Đã tạo key Substitution ngẫu nhiên.");
         } catch (Exception e) {
-            showError("Lỗi mã hóa: " + e.getMessage());
+            showError("Lỗi tạo key: " + e.getMessage());
         }
+    }
+
+    private void encrypt() {
+        process(true);
     }
 
     private void decrypt() {
+        process(false);
+    }
+
+    private void process(boolean encryptMode) {
         String input = inputTextArea.getText();
-        if (input.isEmpty()) {
-            showError("Vui lòng nhập văn bản");
+
+        if (input == null || input.isEmpty()) {
+            showError("Vui lòng nhập văn bản hoặc chọn file text.");
             return;
         }
 
-        String algorithm = (String) algorithmCombo.getSelectedItem();
-        String key = extractKeyFromPanel();
+        String key = keyTextArea.getText();
 
-        if (key == null || key.isEmpty()) {
-            showError("Vui lòng nhập khóa");
-            return;
+        try {
+            String algorithm = getSelectedAlgorithm();
+            String result;
+
+            switch (algorithm) {
+                case "Caesar":
+                    result = processCaesar(input, key, encryptMode);
+                    break;
+
+                case "Substitution":
+                    result = processSubstitution(input, key, encryptMode);
+                    break;
+
+                case "Affine":
+                    result = processAffine(input, key, encryptMode);
+                    break;
+
+                case "Vigenere":
+                    result = processVigenere(input, key, encryptMode);
+                    break;
+
+                case "Hill":
+                    result = processHill(input, key, encryptMode);
+                    break;
+
+                case "Transposition":
+                    result = processTransposition(input, key, encryptMode);
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Thuật toán không được hỗ trợ: " + algorithm);
+            }
+
+            outputTextArea.setText(result);
+
+            if (encryptMode) {
+                setStatus("Mã hóa " + algorithm + " thành công.");
+            } else {
+                setStatus("Giải mã " + algorithm + " thành công.");
+            }
+        } catch (Exception e) {
+            if (encryptMode) {
+                showError("Lỗi mã hóa: " + e.getMessage());
+            } else {
+                showError("Lỗi giải mã: " + e.getMessage());
+            }
+        }
+    }
+
+    private String processCaesar(String input, String key, boolean encryptMode) {
+        int shift = parseIntegerKey(key, "Key Caesar phải là số nguyên.");
+        CaesarCipher cipher = new CaesarCipher(getSelectedAlphabetType());
+
+        if (encryptMode) {
+            return cipher.encrypt(input, shift);
+        }
+
+        return cipher.decrypt(input, shift);
+    }
+
+    private String processSubstitution(String input, String key, boolean encryptMode) throws Exception {
+        if (key == null || key.trim().isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng nhập key Substitution hoặc bấm Tạo key.");
+        }
+
+        SubstitutionCipher cipher = new SubstitutionCipher(getSelectedAlphabetType());
+
+        if (encryptMode) {
+            return cipher.encrypt(input, key.trim());
+        }
+
+        return cipher.decrypt(input, key.trim());
+    }
+
+    private String processAffine(String input, String key, boolean encryptMode) throws Exception {
+        AffineCipher cipher = new AffineCipher(getSelectedAlphabetType());
+
+        if (encryptMode) {
+            return cipher.encrypt(input, key);
+        }
+
+        return cipher.decrypt(input, key);
+    }
+
+    private String processVigenere(String input, String key, boolean encryptMode) throws Exception {
+        if (key == null || key.trim().isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng nhập key Vigenere.");
+        }
+
+        VigenereCipher cipher = new VigenereCipher(getSelectedAlphabetType());
+
+        if (encryptMode) {
+            return cipher.encrypt(input, key.trim());
+        }
+
+        return cipher.decrypt(input, key.trim());
+    }
+
+    private String processHill(String input, String key, boolean encryptMode) throws Exception {
+        int[][] matrix = parseHillMatrix(key);
+
+        // Hill dùng English A-Z để ổn định.
+        HillCipher cipher = new HillCipher(AlphabetType.ENGLISH);
+        String normalizedInput = input.toUpperCase();
+
+        if (encryptMode) {
+            return cipher.encrypt(normalizedInput, matrix);
+        }
+
+        return cipher.decrypt(normalizedInput, matrix);
+    }
+
+    private String processTransposition(String input, String key, boolean encryptMode) throws Exception {
+        if (key == null || key.trim().isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng nhập key Transposition.");
+        }
+
+        TranspositionCipher cipher = new TranspositionCipher(AlphabetType.ENGLISH);
+        String trimmedKey = key.trim();
+
+        if (trimmedKey.contains(",")) {
+            int[] keySequence = parseKeySequence(trimmedKey);
+
+            if (encryptMode) {
+                return cipher.encryptRowColumn(input, keySequence);
+            }
+
+            return cipher.decryptRowColumn(input, keySequence);
+        }
+
+        int rails = parseIntegerKey(trimmedKey, "Key Transposition phải là số hàng >= 2 hoặc dãy cột dạng 3,1,4,2.");
+
+        if (encryptMode) {
+            return cipher.encryptRailFence(input, rails);
+        }
+
+        return cipher.decryptRailFence(input, rails);
+    }
+
+    private int[][] parseHillMatrix(String key) {
+        if (key == null || key.trim().isEmpty()) {
+            throw new IllegalArgumentException("Key Hill không được để trống.");
+        }
+
+        String[] parts = key.trim().split(",");
+
+        if (parts.length != 4) {
+            throw new IllegalArgumentException("Key Hill phải có 4 số dạng a,b,c,d. Ví dụ: 3,3,2,5.");
         }
 
         try {
-            String result = "";
-
-            if (algorithm.contains("Caesar")) {
-                int shift = Integer.parseInt(key);
-                result = caesarDecrypt(input, shift);
-                outputTextArea.setText(result);
-                statusLabel.setText("✓ Giải mã Caesar thành công");
-
-            } else if (algorithm.contains("Substitution")) {
-                result = substitutionDecrypt(input, key);
-                outputTextArea.setText(result);
-                statusLabel.setText("✓ Giải mã Thay thế thành công");
-
-            } else if (algorithm.contains("Vigenère")) {
-                result = vigenereDecrypt(input, key);
-                outputTextArea.setText(result);
-                statusLabel.setText("✓ Giải mã Vigenère thành công");
-
-            } else if (algorithm.contains("Atbash")) {
-                result = atbashDecrypt(input);
-                outputTextArea.setText(result);
-                statusLabel.setText("✓ Giải mã Atbash thành công");
-            }
-        } catch (Exception e) {
-            showError("Lỗi giải mã: " + e.getMessage());
+            return new int[][]{
+                    {Integer.parseInt(parts[0].trim()), Integer.parseInt(parts[1].trim())},
+                    {Integer.parseInt(parts[2].trim()), Integer.parseInt(parts[3].trim())}
+            };
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Key Hill chỉ được chứa số nguyên.");
         }
     }
 
-    private String extractKeyFromPanel() {
-        Component[] components = keyPanel.getComponents();
+    private int[] parseKeySequence(String key) {
+        String[] parts = key.trim().split(",");
+        int[] sequence = new int[parts.length];
+        boolean[] seen = new boolean[parts.length + 1];
 
-        String algorithm = (String) algorithmCombo.getSelectedItem();
+        try {
+            for (int i = 0; i < parts.length; i++) {
+                int value = Integer.parseInt(parts[i].trim());
 
-        if (algorithm.contains("Caesar")) {
-            for (Component comp : components) {
-                if (comp instanceof JSpinner) {
-                    return String.valueOf(((JSpinner) comp).getValue());
+                if (value < 1 || value > parts.length) {
+                    throw new IllegalArgumentException("Key cột phải là hoán vị từ 1 đến " + parts.length + ".");
                 }
-            }
-        } else if (algorithm.contains("Substitution") || algorithm.contains("Vigenère")) {
-            for (Component comp : components) {
-                if (comp instanceof JTextField) {
-                    return ((JTextField) comp).getText();
+
+                if (seen[value]) {
+                    throw new IllegalArgumentException("Key cột bị trùng giá trị: " + value);
                 }
+
+                seen[value] = true;
+                sequence[i] = value;
             }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Key cột chỉ được chứa số nguyên.");
         }
 
-        return "";
+        return sequence;
     }
 
-    // Caesar Cipher
-    private String caesarEncrypt(String plaintext, int shift) {
-        StringBuilder result = new StringBuilder();
-        for (char c : plaintext.toCharArray()) {
-            if (Character.isLetter(c)) {
-                char base = Character.isUpperCase(c) ? 'A' : 'a';
-                result.append((char) ((c - base + shift) % 26 + base));
-            } else {
-                result.append(c);
-            }
+    private int parseIntegerKey(String key, String errorMessage) {
+        if (key == null || key.trim().isEmpty()) {
+            throw new IllegalArgumentException(errorMessage);
         }
-        return result.toString();
-    }
 
-    private String caesarDecrypt(String ciphertext, int shift) {
-        return caesarEncrypt(ciphertext, 26 - shift);
-    }
-
-    // Substitution Cipher
-    private String substitutionEncrypt(String plaintext, String key) {
-        String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        StringBuilder result = new StringBuilder();
-
-        for (char c : plaintext.toCharArray()) {
-            if (Character.isLetter(c)) {
-                int index = Character.toUpperCase(c) - 'A';
-                char encrypted = key.charAt(index);
-                if (Character.isLowerCase(c)) {
-                    result.append(Character.toLowerCase(encrypted));
-                } else {
-                    result.append(encrypted);
-                }
-            } else {
-                result.append(c);
-            }
+        try {
+            return Integer.parseInt(key.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(errorMessage);
         }
-        return result.toString();
     }
 
-    private String substitutionDecrypt(String ciphertext, String key) {
-        String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        StringBuilder result = new StringBuilder();
+    private AlphabetType getSelectedAlphabetType() {
+        String selected = (String) alphabetCombo.getSelectedItem();
 
-        for (char c : ciphertext.toCharArray()) {
-            if (Character.isLetter(c)) {
-                int index = key.indexOf(Character.toUpperCase(c));
-                char decrypted = alphabet.charAt(index);
-                if (Character.isLowerCase(c)) {
-                    result.append(Character.toLowerCase(decrypted));
-                } else {
-                    result.append(decrypted);
-                }
-            } else {
-                result.append(c);
-            }
+        if ("Vietnamese".equals(selected)) {
+            return AlphabetType.VIETNAMESE;
         }
-        return result.toString();
-    }
 
-    // Vigenère Cipher
-    private String vigenereEncrypt(String plaintext, String key) {
-        StringBuilder result = new StringBuilder();
-        key = key.toUpperCase();
-        int keyIndex = 0;
-
-        for (char c : plaintext.toCharArray()) {
-            if (Character.isLetter(c)) {
-                char base = Character.isUpperCase(c) ? 'A' : 'a';
-                int shift = key.charAt(keyIndex % key.length()) - 'A';
-                result.append((char) ((c - base + shift) % 26 + base));
-                keyIndex++;
-            } else {
-                result.append(c);
-            }
+        if ("Mixed".equals(selected)) {
+            return AlphabetType.MIXED;
         }
-        return result.toString();
+
+        return AlphabetType.ENGLISH;
     }
 
-    private String vigenereDecrypt(String ciphertext, String key) {
-        StringBuilder result = new StringBuilder();
-        key = key.toUpperCase();
-        int keyIndex = 0;
+    private String getSelectedAlgorithm() {
+        String selected = (String) algorithmCombo.getSelectedItem();
 
-        for (char c : ciphertext.toCharArray()) {
-            if (Character.isLetter(c)) {
-                char base = Character.isUpperCase(c) ? 'A' : 'a';
-                int shift = key.charAt(keyIndex % key.length()) - 'A';
-                result.append((char) ((c - base - shift + 26) % 26 + base));
-                keyIndex++;
-            } else {
-                result.append(c);
-            }
+        if (selected == null) {
+            return "Caesar";
         }
-        return result.toString();
-    }
 
-    // Atbash Cipher
-    private String atbashEncrypt(String plaintext) {
-        StringBuilder result = new StringBuilder();
-        for (char c : plaintext.toCharArray()) {
-            if (Character.isLetter(c)) {
-                char base = Character.isUpperCase(c) ? 'A' : 'a';
-                result.append((char) (base + 'Z' - c));
-            } else {
-                result.append(c);
-            }
-        }
-        return result.toString();
-    }
-
-    private String atbashDecrypt(String ciphertext) {
-        return atbashEncrypt(ciphertext);
-    }
-
-    private void clear() {
-        inputTextArea.setText("");
-        outputTextArea.setText("");
-        statusLabel.setText("Đã xóa");
+        return selected;
     }
 
     private void loadFile() {
-        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File file = fileChooser.getSelectedFile();
+        int result = fileChooser.showOpenDialog(this);
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            selectedFile = fileChooser.getSelectedFile();
+
             try {
-                String content = FileUtil.readFile(file.getAbsolutePath());
+                String content = FileUtil.readFile(selectedFile.getAbsolutePath());
                 inputTextArea.setText(content);
-                statusLabel.setText("✓ Tải tệp thành công: " + file.getName());
+                filePathField.setText(selectedFile.getAbsolutePath());
+                setStatus("Đã tải file text: " + selectedFile.getName());
             } catch (Exception e) {
-                showError("Lỗi tải tệp: " + e.getMessage());
+                showError("Lỗi tải file: " + e.getMessage());
             }
         }
     }
 
     private void saveFile() {
         String content = outputTextArea.getText();
-        if (content.isEmpty()) {
-            showError("Không có dữ liệu để lưu");
+
+        if (content == null || content.isEmpty()) {
+            showError("Không có kết quả để lưu.");
             return;
         }
-        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+
+        if (selectedFile != null) {
+            fileChooser.setSelectedFile(new File(selectedFile.getName() + ".out.txt"));
+        }
+
+        int result = fileChooser.showSaveDialog(this);
+
+        if (result == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
+
             try {
                 FileUtil.writeFile(file.getAbsolutePath(), content);
-                statusLabel.setText("✓ Lưu tệp thành công: " + file.getName());
+                setStatus("Đã lưu kết quả: " + file.getName());
             } catch (Exception e) {
-                showError("Lỗi lưu tệp: " + e.getMessage());
+                showError("Lỗi lưu file: " + e.getMessage());
             }
         }
     }
 
+    private void copyResult() {
+        String text = outputTextArea.getText();
+
+        if (text == null || text.isEmpty()) {
+            showError("Không có kết quả để sao chép.");
+            return;
+        }
+
+        StringSelection selection = new StringSelection(text);
+        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
+
+        setStatus("Đã sao chép kết quả.");
+    }
+
+    private void clear() {
+        selectedFile = null;
+
+        filePathField.setText("");
+        inputTextArea.setText("");
+        outputTextArea.setText("");
+
+        setStatus("Đã xóa dữ liệu.");
+    }
+
     private void showError(String message) {
         JOptionPane.showMessageDialog(this, message, "Lỗi", JOptionPane.ERROR_MESSAGE);
-        statusLabel.setText("✗ Lỗi: " + message);
+        setStatus("Lỗi: " + message);
+    }
+
+    private void setStatus(String message) {
+        if (statusLabel != null) {
+            statusLabel.setText(message);
+        }
     }
 }

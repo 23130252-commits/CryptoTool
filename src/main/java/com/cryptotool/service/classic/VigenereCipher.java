@@ -5,73 +5,91 @@ import com.cryptotool.service.classic.alphabet.AlphabetRepository;
 import com.cryptotool.service.classic.alphabet.AlphabetType;
 
 public class VigenereCipher {
-    private Alphabet alphabet;
+    private final Alphabet alphabet;
+
+    public VigenereCipher() {
+        this(AlphabetType.ENGLISH);
+    }
 
     public VigenereCipher(AlphabetType alphabetType) {
         this.alphabet = AlphabetRepository.getAlphabet(alphabetType);
     }
 
-    /**
-     * Mã hóa Vigenère Cipher
-     */
-    public String encrypt(String plaintext, String key) throws Exception {
-        if (key == null || key.isEmpty()) {
-            throw new Exception("Key không được để trống!");
-        }
+    public String encrypt(String plaintext, String key) {
+        validateKey(key);
 
-        // Kiểm tra key chỉ chứa ký tự trong bảng chữ cái
-        for (char c : key.toCharArray()) {
-            if (!alphabet.contains(c)) {
-                throw new Exception("Key chỉ được chứa ký tự trong bảng chữ cái!");
-            }
-        }
+        plaintext = alphabet.normalizeText(plaintext);
+        key = alphabet.normalizeText(key);
 
         StringBuilder result = new StringBuilder();
         int keyIndex = 0;
 
-        for (char c : plaintext.toCharArray()) {
-            if (alphabet.contains(c)) {
-                int plainIndex = alphabet.getIndex(c);
-                int keyCharIndex = alphabet.getIndex(key.charAt(keyIndex % key.length()));
-                int encryptedIndex = (plainIndex + keyCharIndex) % alphabet.getSize();
-                result.append(alphabet.getCharAt(encryptedIndex));
-                keyIndex++;
-            } else {
-                result.append(c);
+        for (char plainChar : plaintext.toCharArray()) {
+            int plainPosition = alphabet.indexOf(plainChar);
+
+            if (plainPosition == -1) {
+                result.append(plainChar);
+                continue;
             }
+
+            char keyChar = getNextKeyChar(key, keyIndex);
+            int keyPosition = alphabet.indexOf(keyChar);
+
+            int encryptedPosition = plainPosition + keyPosition;
+            result.append(alphabet.charAt(encryptedPosition));
+
+            keyIndex++;
         }
+
         return result.toString();
     }
 
-    /**
-     * Giải mã Vigenère Cipher
-     */
-    public String decrypt(String ciphertext, String key) throws Exception {
-        if (key == null || key.isEmpty()) {
-            throw new Exception("Key không được để trống!");
-        }
+    public String decrypt(String ciphertext, String key) {
+        validateKey(key);
 
-        // Kiểm tra key chỉ chứa ký tự trong bảng chữ cái
-        for (char c : key.toCharArray()) {
-            if (!alphabet.contains(c)) {
-                throw new Exception("Key chỉ được chứa ký tự trong bảng chữ cái!");
-            }
-        }
+        ciphertext = alphabet.normalizeText(ciphertext);
+        key = alphabet.normalizeText(key);
 
         StringBuilder result = new StringBuilder();
         int keyIndex = 0;
 
-        for (char c : ciphertext.toCharArray()) {
-            if (alphabet.contains(c)) {
-                int cipherIndex = alphabet.getIndex(c);
-                int keyCharIndex = alphabet.getIndex(key.charAt(keyIndex % key.length()));
-                int decryptedIndex = (cipherIndex - keyCharIndex + alphabet.getSize()) % alphabet.getSize();
-                result.append(alphabet.getCharAt(decryptedIndex));
-                keyIndex++;
-            } else {
-                result.append(c);
+        for (char cipherChar : ciphertext.toCharArray()) {
+            int cipherPosition = alphabet.indexOf(cipherChar);
+
+            if (cipherPosition == -1) {
+                result.append(cipherChar);
+                continue;
+            }
+
+            char keyChar = getNextKeyChar(key, keyIndex);
+            int keyPosition = alphabet.indexOf(keyChar);
+
+            int decryptedPosition = cipherPosition - keyPosition;
+            result.append(alphabet.charAt(decryptedPosition));
+
+            keyIndex++;
+        }
+
+        return result.toString();
+    }
+
+    private char getNextKeyChar(String key, int keyIndex) {
+        return key.charAt(keyIndex % key.length());
+    }
+
+    private void validateKey(String key) {
+        if (key == null || key.trim().isEmpty()) {
+            throw new IllegalArgumentException("Khóa Vigenere không được để trống.");
+        }
+
+        String normalizedKey = alphabet.normalizeText(key.trim());
+
+        for (char ch : normalizedKey.toCharArray()) {
+            if (!alphabet.contains(ch)) {
+                throw new IllegalArgumentException(
+                        "Khóa Vigenere chứa ký tự không nằm trong bảng chữ cái: " + ch
+                );
             }
         }
-        return result.toString();
     }
 }

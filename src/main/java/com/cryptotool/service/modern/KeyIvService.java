@@ -4,70 +4,107 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 public class KeyIvService {
-    private SecureRandom random = new SecureRandom();
+    private final SecureRandom secureRandom;
 
-    /**
-     * Tạo key ngẫu nhiên
-     */
-    public byte[] generateKey(int keySize) {
-        if (keySize != 128 && keySize != 192 && keySize != 256) {
-            throw new IllegalArgumentException("Key size phải là 128, 192, hoặc 256 bits!");
-        }
-        byte[] key = new byte[keySize / 8];
-        random.nextBytes(key);
+    public KeyIvService() {
+        this.secureRandom = new SecureRandom();
+    }
+
+    public byte[] generateKey(int keySizeInBits) {
+        validateKeySize(keySizeInBits);
+
+        int keySizeInBytes = keySizeInBits / 8;
+        byte[] key = new byte[keySizeInBytes];
+        secureRandom.nextBytes(key);
+
         return key;
     }
 
-    /**
-     * Tạo IV (Initialization Vector)
-     */
-    public byte[] generateIV(int ivSize) {
-        byte[] iv = new byte[ivSize / 8];
-        random.nextBytes(iv);
+    public byte[] generateIV(int ivSizeInBits) {
+        validateIvSize(ivSizeInBits);
+
+        int ivSizeInBytes = ivSizeInBits / 8;
+        byte[] iv = new byte[ivSizeInBytes];
+        secureRandom.nextBytes(iv);
+
         return iv;
     }
 
-    /**
-     * Tạo IV 128-bit (thường dùng cho AES)
-     */
+    public String keyToBase64(byte[] keyOrIv) {
+        if (keyOrIv == null || keyOrIv.length == 0) {
+            throw new IllegalArgumentException("Dữ liệu key/IV không được để trống.");
+        }
+
+        return Base64.getEncoder().encodeToString(keyOrIv);
+    }
+
+    public byte[] base64ToKey(String base64) {
+        if (base64 == null || base64.trim().isEmpty()) {
+            throw new IllegalArgumentException("Chuỗi Base64 không được để trống.");
+        }
+
+        try {
+            return Base64.getDecoder().decode(base64.trim());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Chuỗi Base64 không hợp lệ.");
+        }
+    }
+
+    public byte[] generateAESKey128() {
+        return generateKey(128);
+    }
+
+    public byte[] generateAESKey192() {
+        return generateKey(192);
+    }
+
+    public byte[] generateAESKey256() {
+        return generateKey(256);
+    }
+
+    public byte[] generate3DESKey() {
+        return generateKey(192);
+    }
+
     public byte[] generateAESIV() {
         return generateIV(128);
     }
 
-    /**
-     * Chuyển key/IV thành Base64
-     */
-    public String keyToBase64(byte[] key) {
-        return Base64.getEncoder().encodeToString(key);
+    public byte[] generate3DESIV() {
+        return generateIV(64);
     }
 
-    /**
-     * Chuyển Base64 thành key/IV
-     */
-    public byte[] base64ToKey(String base64Key) {
-        return Base64.getDecoder().decode(base64Key);
+    public boolean isValidAESKey(byte[] key) {
+        return key != null && (key.length == 16 || key.length == 24 || key.length == 32);
     }
 
-    /**
-     * Chuyển key/IV thành Hex
-     */
-    public String keyToHex(byte[] key) {
-        StringBuilder hex = new StringBuilder();
-        for (byte b : key) {
-            hex.append(String.format("%02X", b));
+    public boolean isValid3DESKey(byte[] key) {
+        return key != null && key.length == 24;
+    }
+
+    public boolean isValidAESIV(byte[] iv) {
+        return iv != null && iv.length == 16;
+    }
+
+    public boolean isValid3DESIV(byte[] iv) {
+        return iv != null && iv.length == 8;
+    }
+
+    private void validateKeySize(int keySizeInBits) {
+        if (keySizeInBits != 128
+                && keySizeInBits != 192
+                && keySizeInBits != 256) {
+            throw new IllegalArgumentException(
+                    "Key size không hợp lệ. Chỉ hỗ trợ 128, 192 hoặc 256 bit."
+            );
         }
-        return hex.toString();
     }
 
-    /**
-     * Chuyển Hex thành key/IV
-     */
-    public byte[] hexToKey(String hexKey) {
-        byte[] key = new byte[hexKey.length() / 2];
-        for (int i = 0; i < hexKey.length(); i += 2) {
-            key[i / 2] = (byte) ((Character.digit(hexKey.charAt(i), 16) << 4)
-                    + Character.digit(hexKey.charAt(i + 1), 16));
+    private void validateIvSize(int ivSizeInBits) {
+        if (ivSizeInBits != 64 && ivSizeInBits != 128) {
+            throw new IllegalArgumentException(
+                    "IV size không hợp lệ. Chỉ hỗ trợ 64 bit cho 3DES hoặc 128 bit cho AES."
+            );
         }
-        return key;
     }
 }

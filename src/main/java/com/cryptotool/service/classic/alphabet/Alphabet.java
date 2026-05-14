@@ -1,63 +1,150 @@
 package com.cryptotool.service.classic.alphabet;
 
+import java.text.Normalizer;
+import java.util.HashMap;
+import java.util.Map;
+
 public class Alphabet {
-    private AlphabetType type;
-    private String chars;
+    private final AlphabetType type;
+    private final String displayName;
+    private final String characters;
+    private final Map<Character, Integer> indexMap;
 
     public Alphabet(AlphabetType type) {
-        this.type = type;
-        this.chars = type.getAlphabet();
-    }
-
-    /**
-     * Lấy vị trí của ký tự trong bảng chữ cái
-     */
-    public int getIndex(char c) {
-        return chars.indexOf(c);
-    }
-
-    /**
-     * Lấy ký tự từ vị trí
-     */
-    public char getCharAt(int index) {
-        if (index >= 0 && index < chars.length()) {
-            return chars.charAt(index);
+        if (type == null) {
+            throw new IllegalArgumentException("AlphabetType không được null.");
         }
-        return '?';
+
+        this.type = type;
+        this.displayName = type.getDisplayName();
+        this.characters = normalize(type.getAlphabet());
+        this.indexMap = new HashMap<>();
+
+        buildIndexMap();
     }
 
-    /**
-     * Kiểm tra ký tự có trong bảng chữ cái không
-     */
-    public boolean contains(char c) {
-        return chars.indexOf(c) >= 0;
+    public Alphabet(String displayName, String characters) {
+        if (characters == null || characters.isEmpty()) {
+            throw new IllegalArgumentException("Bảng chữ cái không được để trống.");
+        }
+
+        this.type = null;
+        this.displayName = displayName == null ? "Custom Alphabet" : displayName;
+        this.characters = normalize(characters);
+        this.indexMap = new HashMap<>();
+
+        buildIndexMap();
     }
 
-    /**
-     * Lấy kích thước bảng chữ cái
-     */
-    public int getSize() {
-        return chars.length();
+    private void buildIndexMap() {
+        for (int i = 0; i < characters.length(); i++) {
+            char ch = characters.charAt(i);
+
+            if (indexMap.containsKey(ch)) {
+                throw new IllegalArgumentException(
+                        "Bảng chữ cái " + displayName + " bị trùng ký tự: " + ch
+                );
+            }
+
+            indexMap.put(ch, i);
+        }
     }
 
-    /**
-     * Lấy chuỗi bảng chữ cái
-     */
-    public String getAlphabet() {
-        return chars;
-    }
-
-    /**
-     * Lấy loại bảng chữ cái
-     */
     public AlphabetType getType() {
         return type;
     }
 
-    /**
-     * Kiểm tra xem ký tự có phải chữ cái không (loại trừ khoảng trắng, số, dấu câu)
-     */
-    public boolean isLetter(char c) {
-        return contains(c);
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public String getCharacters() {
+        return characters;
+    }
+
+    public int size() {
+        return characters.length();
+    }
+
+    public boolean contains(char ch) {
+        ch = normalizeChar(ch);
+        return indexMap.containsKey(ch);
+    }
+
+    public int indexOf(char ch) {
+        ch = normalizeChar(ch);
+
+        Integer index = indexMap.get(ch);
+
+        if (index == null) {
+            return -1;
+        }
+
+        return index;
+    }
+
+    public char charAt(int index) {
+        if (characters.isEmpty()) {
+            throw new IllegalStateException("Bảng chữ cái đang rỗng.");
+        }
+
+        int safeIndex = mod(index, size());
+        return characters.charAt(safeIndex);
+    }
+
+    public String normalizeText(String input) {
+        if (input == null) {
+            return "";
+        }
+
+        return normalize(input);
+    }
+
+    public String filterOnlyAlphabetCharacters(String input) {
+        input = normalizeText(input);
+
+        StringBuilder result = new StringBuilder();
+
+        for (char ch : input.toCharArray()) {
+            if (contains(ch)) {
+                result.append(ch);
+            }
+        }
+
+        return result.toString();
+    }
+
+    public boolean isValidText(String input) {
+        input = normalizeText(input);
+
+        for (char ch : input.toCharArray()) {
+            if (!contains(ch)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public int mod(int value) {
+        return mod(value, size());
+    }
+
+    private int mod(int value, int modulo) {
+        return ((value % modulo) + modulo) % modulo;
+    }
+
+    private char normalizeChar(char ch) {
+        String normalized = normalize(String.valueOf(ch));
+
+        if (normalized.length() == 1) {
+            return normalized.charAt(0);
+        }
+
+        return ch;
+    }
+
+    private String normalize(String input) {
+        return Normalizer.normalize(input, Normalizer.Form.NFC);
     }
 }

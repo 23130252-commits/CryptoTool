@@ -5,121 +5,135 @@ import com.cryptotool.service.classic.alphabet.AlphabetRepository;
 import com.cryptotool.service.classic.alphabet.AlphabetType;
 
 public class AffineCipher {
-    private Alphabet alphabet;
+    private final Alphabet alphabet;
+
+    public AffineCipher() {
+        this(AlphabetType.ENGLISH);
+    }
 
     public AffineCipher(AlphabetType alphabetType) {
         this.alphabet = AlphabetRepository.getAlphabet(alphabetType);
     }
 
-    /**
-     * Tính GCD (Greatest Common Divisor)
-     */
-    private int gcd(int a, int b) {
-        while (b != 0) {
-            int temp = b;
-            b = a % b;
-            a = temp;
-        }
-        return a;
+    public String encrypt(String plaintext, String key) {
+        int[] parsedKey = parseKey(key);
+        return encrypt(plaintext, parsedKey[0], parsedKey[1]);
     }
 
-    /**
-     * Tính modular multiplicative inverse của a mod m
-     */
-    private int modInverse(int a, int m) {
-        a = a % m;
-        for (int x = 1; x < m; x++) {
-            if ((a * x) % m == 1) {
-                return x;
-            }
-        }
-        return -1;
+    public String decrypt(String ciphertext, String key) {
+        int[] parsedKey = parseKey(key);
+        return decrypt(ciphertext, parsedKey[0], parsedKey[1]);
     }
 
-    /**
-     * Mã hóa Affine Cipher
-     * key là "a,b" (ví dụ: "5,8")
-     * E(x) = (a*x + b) mod n
-     */
-    public String encrypt(String plaintext, String key) throws Exception {
-        int[] ab = parseKey(key);
-        int a = ab[0];
-        int b = ab[1];
-        int n = alphabet.getSize();
+    public String encrypt(String plaintext, int a, int b) {
+        validateA(a);
 
-        // Kiểm tra gcd(a, n) = 1
-        if (gcd(a, n) != 1) {
-            throw new Exception("gcd(a, n) phải bằng 1! a=" + a + ", n=" + n);
+        if (plaintext == null) {
+            throw new IllegalArgumentException("Văn bản cần mã hóa không được null.");
         }
 
+        plaintext = alphabet.normalizeText(plaintext);
+
+        int n = alphabet.size();
         StringBuilder result = new StringBuilder();
-        for (char c : plaintext.toCharArray()) {
-            if (alphabet.contains(c)) {
-                int x = alphabet.getIndex(c);
-                int encrypted = (a * x + b) % n;
-                result.append(alphabet.getCharAt(encrypted));
-            } else {
-                result.append(c);
+
+        for (char ch : plaintext.toCharArray()) {
+            int x = alphabet.indexOf(ch);
+
+            if (x == -1) {
+                result.append(ch);
+                continue;
             }
+
+            int encryptedIndex = a * x + b;
+            result.append(alphabet.charAt(encryptedIndex));
         }
+
         return result.toString();
     }
 
-    /**
-     * Giải mã Affine Cipher
-     * D(y) = a^-1 * (y - b) mod n
-     */
-    public String decrypt(String ciphertext, String key) throws Exception {
-        int[] ab = parseKey(key);
-        int a = ab[0];
-        int b = ab[1];
-        int n = alphabet.getSize();
+    public String decrypt(String ciphertext, int a, int b) {
+        validateA(a);
 
-        // Kiểm tra gcd(a, n) = 1
-        if (gcd(a, n) != 1) {
-            throw new Exception("gcd(a, n) phải bằng 1! a=" + a + ", n=" + n);
+        if (ciphertext == null) {
+            throw new IllegalArgumentException("Văn bản cần giải mã không được null.");
         }
 
-        int aInverse = modInverse(a, n);
-        if (aInverse == -1) {
-            throw new Exception("Không tìm được modular inverse của a!");
-        }
+        ciphertext = alphabet.normalizeText(ciphertext);
+
+        int n = alphabet.size();
+        int inverseA = modInverse(a, n);
 
         StringBuilder result = new StringBuilder();
-        for (char c : ciphertext.toCharArray()) {
-            if (alphabet.contains(c)) {
-                int y = alphabet.getIndex(c);
-                int decrypted = (aInverse * (y - b)) % n;
-                if (decrypted < 0) {
-                    decrypted += n;
-                }
-                result.append(alphabet.getCharAt(decrypted));
-            } else {
-                result.append(c);
+
+        for (char ch : ciphertext.toCharArray()) {
+            int y = alphabet.indexOf(ch);
+
+            if (y == -1) {
+                result.append(ch);
+                continue;
             }
+
+            int decryptedIndex = inverseA * (y - b);
+            result.append(alphabet.charAt(decryptedIndex));
         }
+
         return result.toString();
     }
 
-    /**
-     * Parse key từ định dạng "a,b"
-     */
-    private int[] parseKey(String key) throws Exception {
+    private int[] parseKey(String key) {
         if (key == null || key.trim().isEmpty()) {
-            throw new Exception("Key không được để trống!");
+            throw new IllegalArgumentException("Key Affine không được để trống. Dạng đúng: a,b. Ví dụ: 5,8");
         }
 
         String[] parts = key.trim().split(",");
+
         if (parts.length != 2) {
-            throw new Exception("Key phải có định dạng 'a,b' (ví dụ: '5,8')");
+            throw new IllegalArgumentException("Key Affine phải có dạng a,b. Ví dụ: 5,8");
         }
 
         try {
             int a = Integer.parseInt(parts[0].trim());
             int b = Integer.parseInt(parts[1].trim());
+
             return new int[]{a, b};
         } catch (NumberFormatException e) {
-            throw new Exception("Key phải chứa các số nguyên!");
+            throw new IllegalArgumentException("Key Affine chỉ được chứa số nguyên. Ví dụ: 5,8");
         }
+    }
+
+    private void validateA(int a) {
+        int n = alphabet.size();
+
+        if (gcd(a, n) != 1) {
+            throw new IllegalArgumentException(
+                    "Key a không hợp lệ. Cần gcd(a, " + n + ") = 1."
+            );
+        }
+    }
+
+    private int modInverse(int a, int n) {
+        a = ((a % n) + n) % n;
+
+        for (int x = 1; x < n; x++) {
+            if ((a * x) % n == 1) {
+                return x;
+            }
+        }
+
+        throw new IllegalArgumentException("Không tìm được nghịch đảo modulo của a.");
+    }
+
+    private int gcd(int a, int b) {
+        a = Math.abs(a);
+        b = Math.abs(b);
+
+        while (b != 0) {
+            int temp = b;
+            b = a % b;
+            a = temp;
+        }
+
+        return a;
     }
 }
