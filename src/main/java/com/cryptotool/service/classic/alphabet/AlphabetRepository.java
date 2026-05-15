@@ -2,7 +2,6 @@ package com.cryptotool.service.classic.alphabet;
 
 public class AlphabetRepository {
     private AlphabetRepository() {
-        // Utility class, không cần tạo object.
     }
 
     public static Alphabet getAlphabet(AlphabetType type) {
@@ -72,7 +71,6 @@ public class AlphabetRepository {
 
     /**
      * Dùng riêng cho Hill Cipher.
-     * Hill nên dùng A-Z để tránh lỗi ma trận nghịch đảo với bảng chữ cái lớn.
      */
     public static Alphabet getEnglishUppercaseAlphabet() {
         return new Alphabet("English Uppercase A-Z", "ABCDEFGHIJKLMNOPQRSTUVWXYZ");

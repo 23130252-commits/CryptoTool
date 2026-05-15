@@ -280,7 +280,6 @@ public class ModernEncryptionPanel extends JPanel {
             keySizeCombo.setSelectedItem("128");
         } else {
             // DESede/3DES dùng 24 byte key.
-            // Thường gọi là 168-bit effective key, nhưng Java dùng 24 byte = 192 bit dữ liệu key.
             keySizeCombo.addItem("192");
             keySizeCombo.setSelectedItem("192");
         }

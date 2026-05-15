@@ -63,8 +63,6 @@ public enum AlphabetType {
     }
 
     private static String buildExtraEnglishAlphabet() {
-        // Tiếng Việt chuẩn không có F, J, W, Z.
-        // Thêm các ký tự này cho bảng Mixed để hỗ trợ từ như Java, File, AES, RSA...
         return "fFjJwWzZ";
     }
 

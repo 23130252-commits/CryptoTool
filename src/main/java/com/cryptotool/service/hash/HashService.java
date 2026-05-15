@@ -7,7 +7,6 @@ import java.security.MessageDigest;
 
 public class HashService {
     private HashService() {
-        // Utility class, không cần tạo object.
     }
 
     public static String hashMD5(String input) throws Exception {

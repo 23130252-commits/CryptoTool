@@ -8,9 +8,7 @@ import java.util.Base64;
 
 public class SymmetricCipherService {
 
-    // =========================
     // AES - ECB
-    // =========================
 
     public String encryptAESECB(String plaintext, byte[] key) throws Exception {
         return encryptText(
@@ -32,9 +30,7 @@ public class SymmetricCipherService {
         );
     }
 
-    // =========================
     // AES - CBC
-    // =========================
 
     public String encryptAESCBC(String plaintext, byte[] key, byte[] iv) throws Exception {
         return encryptText(
@@ -56,9 +52,7 @@ public class SymmetricCipherService {
         );
     }
 
-    // =========================
     // DESede / 3DES - ECB
-    // =========================
 
     public String encrypt3DESECB(String plaintext, byte[] key) throws Exception {
         return encryptText(
@@ -80,9 +74,7 @@ public class SymmetricCipherService {
         );
     }
 
-    // =========================
     // DESede / 3DES - CBC
-    // =========================
 
     public String encrypt3DESCBC(String plaintext, byte[] key, byte[] iv) throws Exception {
         return encryptText(
@@ -103,10 +95,8 @@ public class SymmetricCipherService {
                 "DESede/CBC/PKCS5Padding"
         );
     }
-
-    // =========================
     // Core text methods
-    // =========================
+
 
     private String encryptText(
             String plaintext,
@@ -149,9 +139,7 @@ public class SymmetricCipherService {
         return new String(decryptedBytes, StandardCharsets.UTF_8);
     }
 
-    // =========================
     // Core byte methods
-    // =========================
 
     public byte[] encryptBytes(
             byte[] input,
@@ -199,10 +187,7 @@ public class SymmetricCipherService {
         return cipher.doFinal(input);
     }
 
-    // =========================
     // Validation
-    // =========================
-
     private void validateInputBytes(byte[] input) {
         if (input == null) {
             throw new IllegalArgumentException("Dữ liệu đầu vào không được null.");

@@ -12,7 +12,6 @@ public class HillCipher {
     }
 
     public HillCipher(AlphabetType alphabetType) {
-        // Hill Cipher trong đồ án chỉ dùng bảng English A-Z để dễ kiểm tra ma trận nghịch đảo modulo 26.
         this.alphabet = AlphabetRepository.getEnglishUppercaseAlphabet();
     }
 
