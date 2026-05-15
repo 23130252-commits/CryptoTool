@@ -90,7 +90,7 @@ public class TraditionalEncryptionPanel extends JPanel {
         optionPanel.add(new JLabel("Bảng chữ cái:"), gbc);
 
         gbc.gridx = 3;
-        JLabel alphabetInfoLabel = new JLabel("Mặc định Mixed; Hill dùng English A-Z");
+        JLabel alphabetInfoLabel = new JLabel("Mặc định Anh-Việt; Hill dùng English A-Z");
         alphabetInfoLabel.setForeground(new Color(80, 80, 80));
         optionPanel.add(alphabetInfoLabel, gbc);
 
