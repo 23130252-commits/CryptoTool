@@ -1,5 +1,6 @@
 package com.cryptotool.ui;
 
+import com.cryptotool.service.rsa.HybridEncryptionService;
 import com.cryptotool.service.rsa.RSA256DemoService;
 import com.cryptotool.service.rsa.RSAService;
 import com.cryptotool.util.FileUtil;
@@ -15,16 +16,22 @@ public class RSAPanel extends JPanel {
     private JComboBox<String> rsaModeCombo;
     private JComboBox<String> keySizeCombo;
 
+    private JRadioButton textRadioButton;
+    private JRadioButton fileRadioButton;
+
     private JTextArea publicKeyArea;
     private JTextArea privateKeyArea;
     private JTextArea inputTextArea;
     private JTextArea outputTextArea;
+
+    private JTextField filePathField;
 
     private JButton generateKeysButton;
     private JButton encryptButton;
     private JButton decryptButton;
     private JButton clearButton;
     private JButton copyButton;
+    private JButton chooseFileButton;
     private JButton savePublicKeyButton;
     private JButton savePrivateKeyButton;
     private JButton loadPublicKeyButton;
@@ -33,12 +40,16 @@ public class RSAPanel extends JPanel {
     private JFileChooser fileChooser;
     private JLabel statusLabel;
 
+    private File selectedFile;
+
     private RSAService rsaService;
     private RSA256DemoService rsa256DemoService;
+    private HybridEncryptionService hybridEncryptionService;
 
     public RSAPanel() {
         this.rsaService = new RSAService(2048);
         this.rsa256DemoService = new RSA256DemoService();
+        this.hybridEncryptionService = new HybridEncryptionService();
 
         initComponents();
     }
@@ -55,6 +66,7 @@ public class RSAPanel extends JPanel {
         add(createBottomPanel(), BorderLayout.SOUTH);
 
         updateMode();
+        updateInputMode();
     }
 
     private JPanel createTopPanel() {
@@ -66,7 +78,7 @@ public class RSAPanel extends JPanel {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         rsaModeCombo = new JComboBox<>(new String[]{
-                "RSA 256-bit demo",
+                "RSA 256-bit",
                 "RSA chuẩn"
         });
         rsaModeCombo.setPreferredSize(new Dimension(170, 30));
@@ -78,6 +90,16 @@ public class RSAPanel extends JPanel {
         });
         keySizeCombo.setSelectedItem("2048");
         keySizeCombo.setPreferredSize(new Dimension(100, 30));
+
+        textRadioButton = new JRadioButton("Văn bản", true);
+        fileRadioButton = new JRadioButton("File");
+
+        ButtonGroup inputGroup = new ButtonGroup();
+        inputGroup.add(textRadioButton);
+        inputGroup.add(fileRadioButton);
+
+        textRadioButton.addActionListener(e -> updateInputMode());
+        fileRadioButton.addActionListener(e -> updateInputMode());
 
         generateKeysButton = new JButton("Tạo cặp khóa");
         generateKeysButton.setPreferredSize(new Dimension(130, 35));
@@ -113,6 +135,16 @@ public class RSAPanel extends JPanel {
 
         gbc.gridx = 0;
         gbc.gridy = 1;
+        panel.add(new JLabel("Kiểu dữ liệu:"), gbc);
+
+        gbc.gridx = 1;
+        panel.add(textRadioButton, gbc);
+
+        gbc.gridx = 2;
+        panel.add(fileRadioButton, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 2;
         panel.add(loadPublicKeyButton, gbc);
 
         gbc.gridx = 1;
@@ -151,14 +183,26 @@ public class RSAPanel extends JPanel {
         privateKeyPanel.add(new JScrollPane(privateKeyArea), BorderLayout.CENTER);
 
         JPanel inputPanel = new JPanel(new BorderLayout(5, 5));
-        inputPanel.setBorder(BorderFactory.createTitledBorder("Văn bản đầu vào"));
+        inputPanel.setBorder(BorderFactory.createTitledBorder("Văn bản / File đầu vào"));
 
         inputTextArea = new JTextArea();
         inputTextArea.setFont(new Font("Monospaced", Font.PLAIN, 13));
         inputTextArea.setLineWrap(true);
         inputTextArea.setWrapStyleWord(true);
 
+        JPanel filePanel = new JPanel(new BorderLayout(5, 5));
+
+        filePathField = new JTextField();
+        filePathField.setEditable(false);
+
+        chooseFileButton = new JButton("Chọn file");
+        chooseFileButton.addActionListener(e -> chooseFile());
+
+        filePanel.add(filePathField, BorderLayout.CENTER);
+        filePanel.add(chooseFileButton, BorderLayout.EAST);
+
         inputPanel.add(new JScrollPane(inputTextArea), BorderLayout.CENTER);
+        inputPanel.add(filePanel, BorderLayout.SOUTH);
 
         JPanel outputPanel = new JPanel(new BorderLayout(5, 5));
         outputPanel.setBorder(BorderFactory.createTitledBorder("Kết quả"));
@@ -207,6 +251,7 @@ public class RSAPanel extends JPanel {
         buttonPanel.add(copyButton);
 
         JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+
         statusLabel = new JLabel("Sẵn sàng");
         statusPanel.add(statusLabel);
 
@@ -217,19 +262,54 @@ public class RSAPanel extends JPanel {
     }
 
     private void updateMode() {
+        if (keySizeCombo == null || fileRadioButton == null || statusLabel == null) {
+            return;
+        }
+
         boolean demo256 = isRSA256DemoMode();
 
         keySizeCombo.setEnabled(!demo256);
 
         loadPublicKeyButton.setEnabled(!demo256);
         loadPrivateKeyButton.setEnabled(!demo256);
+
         savePublicKeyButton.setEnabled(true);
         savePrivateKeyButton.setEnabled(true);
 
+        fileRadioButton.setEnabled(!demo256);
+
+        if (demo256 && fileRadioButton.isSelected()) {
+            textRadioButton.setSelected(true);
+        }
+
+        updateInputMode();
+
         if (demo256) {
-            statusLabel.setText("RSA 256-bit demo chỉ dùng cho chuỗi ngắn hoặc số.");
+            statusLabel.setText("RSA 256-bit demo chỉ dùng cho văn bản ngắn, không hỗ trợ file.");
         } else {
-            statusLabel.setText("RSA chuẩn dùng 1024/2048-bit.");
+            statusLabel.setText("RSA chuẩn hỗ trợ văn bản và file bằng Hybrid AES + RSA.");
+        }
+    }
+
+    private void updateInputMode() {
+        if (inputTextArea == null || chooseFileButton == null || filePathField == null) {
+            return;
+        }
+
+        boolean textMode = textRadioButton.isSelected();
+
+        inputTextArea.setEnabled(textMode);
+        inputTextArea.setEditable(textMode);
+
+        chooseFileButton.setEnabled(!textMode);
+        filePathField.setEnabled(!textMode);
+
+        if (statusLabel != null) {
+            if (textMode) {
+                statusLabel.setText("Chế độ RSA văn bản.");
+            } else {
+                statusLabel.setText("Chế độ RSA file: dùng Hybrid AES + RSA.");
+            }
         }
     }
 
@@ -260,6 +340,22 @@ public class RSAPanel extends JPanel {
     }
 
     private void encrypt() {
+        if (textRadioButton.isSelected()) {
+            encryptText();
+        } else {
+            encryptFile();
+        }
+    }
+
+    private void decrypt() {
+        if (textRadioButton.isSelected()) {
+            decryptText();
+        } else {
+            decryptFile();
+        }
+    }
+
+    private void encryptText() {
         try {
             String input = inputTextArea.getText();
 
@@ -284,13 +380,13 @@ public class RSAPanel extends JPanel {
             String cipherText = rsaService.encrypt(input, publicKey);
 
             outputTextArea.setText(cipherText);
-            statusLabel.setText("Mã hóa RSA thành công.");
+            statusLabel.setText("Mã hóa RSA văn bản thành công.");
         } catch (Exception e) {
             showError("Lỗi mã hóa RSA: " + e.getMessage());
         }
     }
 
-    private void decrypt() {
+    private void decryptText() {
         try {
             String input = inputTextArea.getText();
 
@@ -315,9 +411,83 @@ public class RSAPanel extends JPanel {
             String plainText = rsaService.decrypt(input, privateKey);
 
             outputTextArea.setText(plainText);
-            statusLabel.setText("Giải mã RSA thành công.");
+            statusLabel.setText("Giải mã RSA văn bản thành công.");
         } catch (Exception e) {
             showError("Lỗi giải mã RSA: " + e.getMessage());
+        }
+    }
+
+    private void encryptFile() {
+        try {
+            if (isRSA256DemoMode()) {
+                throw new IllegalArgumentException("RSA 256-bit demo không hỗ trợ mã hóa file.");
+            }
+
+            if (selectedFile == null) {
+                throw new IllegalArgumentException("Vui lòng chọn file cần mã hóa.");
+            }
+
+            String publicKeyBase64 = publicKeyArea.getText();
+
+            if (publicKeyBase64 == null || publicKeyBase64.trim().isEmpty()) {
+                throw new IllegalArgumentException("Vui lòng nhập hoặc tạo public key.");
+            }
+
+            PublicKey publicKey = rsaService.getPublicKeyFromBase64(publicKeyBase64.trim());
+
+            File outputFile = hybridEncryptionService.encryptFile(selectedFile, publicKey);
+
+            outputTextArea.setText(
+                    "Mã hóa file RSA Hybrid thành công.\n"
+                            + "File gốc: " + selectedFile.getAbsolutePath() + "\n"
+                            + "File mã hóa: " + outputFile.getAbsolutePath()
+            );
+
+            statusLabel.setText("Đã mã hóa file: " + outputFile.getName());
+        } catch (Exception e) {
+            showError("Lỗi mã hóa file RSA: " + e.getMessage());
+        }
+    }
+
+    private void decryptFile() {
+        try {
+            if (isRSA256DemoMode()) {
+                throw new IllegalArgumentException("RSA 256-bit demo không hỗ trợ giải mã file.");
+            }
+
+            if (selectedFile == null) {
+                throw new IllegalArgumentException("Vui lòng chọn file .rsaenc cần giải mã.");
+            }
+
+            String privateKeyBase64 = privateKeyArea.getText();
+
+            if (privateKeyBase64 == null || privateKeyBase64.trim().isEmpty()) {
+                throw new IllegalArgumentException("Vui lòng nhập hoặc tạo private key.");
+            }
+
+            PrivateKey privateKey = rsaService.getPrivateKeyFromBase64(privateKeyBase64.trim());
+
+            File outputFile = hybridEncryptionService.decryptFile(selectedFile, privateKey);
+
+            outputTextArea.setText(
+                    "Giải mã file RSA Hybrid thành công.\n"
+                            + "File mã hóa: " + selectedFile.getAbsolutePath() + "\n"
+                            + "File giải mã: " + outputFile.getAbsolutePath()
+            );
+
+            statusLabel.setText("Đã giải mã file: " + outputFile.getName());
+        } catch (Exception e) {
+            showError("Lỗi giải mã file RSA: " + e.getMessage());
+        }
+    }
+
+    private void chooseFile() {
+        int result = fileChooser.showOpenDialog(this);
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            selectedFile = fileChooser.getSelectedFile();
+            filePathField.setText(selectedFile.getAbsolutePath());
+            statusLabel.setText("Đã chọn file: " + selectedFile.getName());
         }
     }
 
@@ -368,6 +538,7 @@ public class RSAPanel extends JPanel {
         }
 
         fileChooser.setSelectedFile(new File(defaultFileName));
+
         int result = fileChooser.showSaveDialog(this);
 
         if (result == JFileChooser.APPROVE_OPTION) {
@@ -383,10 +554,14 @@ public class RSAPanel extends JPanel {
     }
 
     private void clear() {
+        selectedFile = null;
+
         publicKeyArea.setText("");
         privateKeyArea.setText("");
         inputTextArea.setText("");
         outputTextArea.setText("");
+        filePathField.setText("");
+
         statusLabel.setText("Đã xóa dữ liệu");
     }
 
