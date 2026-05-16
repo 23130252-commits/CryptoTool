@@ -4,7 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 
 public class MainFrame extends JFrame {
-    private static final String APP_TITLE = "CryptoTool Java - Công cụ mã hóa";
+    private static final String APP_TITLE = "CryptoTool - Ứng dụng mã hóa";
 
     private JTabbedPane tabbedPane;
 
