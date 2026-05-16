@@ -1,6 +1,5 @@
 package com.cryptotool.ui;
 
-import java.security.SecureRandom;
 import com.cryptotool.service.classic.AffineCipher;
 import com.cryptotool.service.classic.CaesarCipher;
 import com.cryptotool.service.classic.HillCipher;
@@ -15,9 +14,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.io.File;
+import java.security.SecureRandom;
 
 public class TraditionalEncryptionPanel extends JPanel {
     private JComboBox<String> algorithmCombo;
+    private JComboBox<String> alphabetCombo;
 
     private JTextArea inputTextArea;
     private JTextArea outputTextArea;
@@ -76,8 +77,17 @@ public class TraditionalEncryptionPanel extends JPanel {
                 "Hill",
                 "Transposition"
         });
-        algorithmCombo.setPreferredSize(new Dimension(220, 30));
+        algorithmCombo.setPreferredSize(new Dimension(200, 30));
         algorithmCombo.addActionListener(e -> updateKeyArea());
+
+        alphabetCombo = new JComboBox<>(new String[]{
+                "English",
+                "Vietnamese",
+                "Mixed"
+        });
+        alphabetCombo.setSelectedItem("English");
+        alphabetCombo.setPreferredSize(new Dimension(150, 30));
+        alphabetCombo.addActionListener(e -> updateKeyArea());
 
         gbc.gridx = 0;
         gbc.gridy = 0;
@@ -90,9 +100,7 @@ public class TraditionalEncryptionPanel extends JPanel {
         optionPanel.add(new JLabel("Bảng chữ cái:"), gbc);
 
         gbc.gridx = 3;
-        JLabel alphabetInfoLabel = new JLabel("Mặc định Anh-Việt; Hill dùng English A-Z");
-        alphabetInfoLabel.setForeground(new Color(80, 80, 80));
-        optionPanel.add(alphabetInfoLabel, gbc);
+        optionPanel.add(alphabetCombo, gbc);
 
         JPanel keyPanel = new JPanel(new BorderLayout(5, 5));
         keyPanel.setBorder(BorderFactory.createTitledBorder("Khóa"));
@@ -207,7 +215,7 @@ public class TraditionalEncryptionPanel extends JPanel {
     }
 
     private void updateKeyArea() {
-        if (keyTextArea == null || keyHintLabel == null || generateKeyButton == null) {
+        if (keyTextArea == null || keyHintLabel == null || generateKeyButton == null || alphabetCombo == null) {
             return;
         }
 
@@ -215,36 +223,40 @@ public class TraditionalEncryptionPanel extends JPanel {
 
         generateKeyButton.setEnabled(true);
         keyTextArea.setEditable(true);
+        alphabetCombo.setEnabled(true);
 
         switch (algorithm) {
             case "Caesar":
-                keyHintLabel.setText("Key Caesar: số dịch k. Dùng Mixed alphabet. Ví dụ: 3");
+                keyHintLabel.setText("Key Caesar: số dịch k. Mặc định nên dùng English để a -> b. Ví dụ: 3");
                 keyTextArea.setText("3");
                 break;
 
             case "Substitution":
-                keyHintLabel.setText("Key Substitution: bảng thay thế Mixed. Bấm Tạo key để sinh tự động.");
+                keyHintLabel.setText("Key Substitution: bảng thay thế theo bảng chữ cái đang chọn. Bấm Tạo key để sinh tự động.");
                 keyTextArea.setText("");
                 break;
 
             case "Affine":
-                keyHintLabel.setText("Key Affine: dạng a,b. Tạo key sẽ sinh a hợp lệ với Mixed alphabet.");
+                keyHintLabel.setText("Key Affine: dạng a,b. Tạo key sẽ sinh a hợp lệ theo bảng chữ cái đang chọn.");
                 keyTextArea.setText(generateAffineKey());
                 break;
 
             case "Vigenere":
-                keyHintLabel.setText("Key Vigenere: từ khóa nằm trong Mixed alphabet. Ví dụ: BaoMat");
-                keyTextArea.setText("BaoMat");
+                keyHintLabel.setText("Key Vigenere: từ khóa. Với English, ví dụ: SECRET hoặc BaoMat.");
+                keyTextArea.setText("SECRET");
                 break;
 
             case "Hill":
                 keyHintLabel.setText("Key Hill 2x2: dạng a,b,c,d. Chỉ hỗ trợ English A-Z. Ví dụ: 3,3,2,5");
                 keyTextArea.setText("3,3,2,5");
+                alphabetCombo.setSelectedItem("English");
+                alphabetCombo.setEnabled(false);
                 break;
 
             case "Transposition":
-                keyHintLabel.setText("Key Transposition: số hàng Rail Fence, ví dụ 3; hoặc key cột dạng 3,1,4,2.");
+                keyHintLabel.setText("Key Transposition: số hàng Rail Fence, ví dụ 3; hoặc key cột dạng 3,1,4,2. Không dùng bảng chữ cái.");
                 keyTextArea.setText("3");
+                alphabetCombo.setEnabled(false);
                 break;
 
             default:
@@ -267,7 +279,7 @@ public class TraditionalEncryptionPanel extends JPanel {
                     break;
 
                 case "Substitution":
-                    SubstitutionCipher substitutionCipher = new SubstitutionCipher(AlphabetType.MIXED);
+                    SubstitutionCipher substitutionCipher = new SubstitutionCipher(getSelectedAlphabetType());
                     keyTextArea.setText(substitutionCipher.generateRandomKey());
                     setStatus("Đã tạo key Substitution ngẫu nhiên.");
                     break;
@@ -302,7 +314,7 @@ public class TraditionalEncryptionPanel extends JPanel {
     }
 
     private String generateAffineKey() {
-        int n = AlphabetRepository.getAlphabet(AlphabetType.MIXED).size();
+        int n = AlphabetRepository.getAlphabet(getSelectedAlphabetType()).size();
 
         int a;
 
@@ -314,8 +326,9 @@ public class TraditionalEncryptionPanel extends JPanel {
 
         return a + "," + b;
     }
+
     private String generateCaesarKey() {
-        int n = AlphabetRepository.getAlphabet(AlphabetType.MIXED).size();
+        int n = AlphabetRepository.getAlphabet(getSelectedAlphabetType()).size();
 
         int shift;
 
@@ -328,13 +341,13 @@ public class TraditionalEncryptionPanel extends JPanel {
 
     private String generateVigenereKey() {
         String[] sampleKeys = {
-                "BaoMat",
-                "Crypto",
-                "Java",
-                "AnToan",
-                "MaHoa",
-                "KhoaHoc",
-                "Security"
+                "SECRET",
+                "BAOMAT",
+                "CRYPTO",
+                "JAVA",
+                "ANTOAN",
+                "MAHOA",
+                "SECURITY"
         };
 
         return sampleKeys[random.nextInt(sampleKeys.length)];
@@ -353,7 +366,7 @@ public class TraditionalEncryptionPanel extends JPanel {
     }
 
     private String generateTranspositionKey() {
-        int rails = random.nextInt(4) + 2; // tạo số từ 2 đến 5
+        int rails = random.nextInt(4) + 2;
         return String.valueOf(rails);
     }
 
@@ -427,7 +440,7 @@ public class TraditionalEncryptionPanel extends JPanel {
     private String processCaesar(String input, String key, boolean encryptMode) {
         int shift = parseIntegerKey(key, "Key Caesar phải là số nguyên.");
 
-        CaesarCipher cipher = new CaesarCipher(AlphabetType.MIXED);
+        CaesarCipher cipher = new CaesarCipher(getSelectedAlphabetType());
 
         if (encryptMode) {
             return cipher.encrypt(input, shift);
@@ -441,7 +454,7 @@ public class TraditionalEncryptionPanel extends JPanel {
             throw new IllegalArgumentException("Vui lòng nhập key Substitution hoặc bấm Tạo key.");
         }
 
-        SubstitutionCipher cipher = new SubstitutionCipher(AlphabetType.MIXED);
+        SubstitutionCipher cipher = new SubstitutionCipher(getSelectedAlphabetType());
 
         if (encryptMode) {
             return cipher.encrypt(input, key.trim());
@@ -451,7 +464,7 @@ public class TraditionalEncryptionPanel extends JPanel {
     }
 
     private String processAffine(String input, String key, boolean encryptMode) throws Exception {
-        AffineCipher cipher = new AffineCipher(AlphabetType.MIXED);
+        AffineCipher cipher = new AffineCipher(getSelectedAlphabetType());
 
         if (encryptMode) {
             return cipher.encrypt(input, key);
@@ -465,7 +478,7 @@ public class TraditionalEncryptionPanel extends JPanel {
             throw new IllegalArgumentException("Vui lòng nhập key Vigenere.");
         }
 
-        VigenereCipher cipher = new VigenereCipher(AlphabetType.MIXED);
+        VigenereCipher cipher = new VigenereCipher(getSelectedAlphabetType());
 
         if (encryptMode) {
             return cipher.encrypt(input, key.trim());
@@ -492,7 +505,7 @@ public class TraditionalEncryptionPanel extends JPanel {
             throw new IllegalArgumentException("Vui lòng nhập key Transposition.");
         }
 
-        TranspositionCipher cipher = new TranspositionCipher(AlphabetType.MIXED);
+        TranspositionCipher cipher = new TranspositionCipher(AlphabetType.ENGLISH);
 
         String trimmedKey = key.trim();
 
@@ -576,6 +589,24 @@ public class TraditionalEncryptionPanel extends JPanel {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(errorMessage);
         }
+    }
+
+    private AlphabetType getSelectedAlphabetType() {
+        if (alphabetCombo == null) {
+            return AlphabetType.ENGLISH;
+        }
+
+        String selected = (String) alphabetCombo.getSelectedItem();
+
+        if ("Vietnamese".equals(selected)) {
+            return AlphabetType.VIETNAMESE;
+        }
+
+        if ("Mixed".equals(selected)) {
+            return AlphabetType.MIXED;
+        }
+
+        return AlphabetType.ENGLISH;
     }
 
     private String getSelectedAlgorithm() {

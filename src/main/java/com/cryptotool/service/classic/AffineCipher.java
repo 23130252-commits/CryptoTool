@@ -45,7 +45,7 @@ public class AffineCipher {
                 continue;
             }
 
-            int encryptedIndex = a * x + b;
+            int encryptedIndex = mod(a * x + b, n);
             result.append(alphabet.charAt(encryptedIndex));
         }
 
@@ -74,7 +74,7 @@ public class AffineCipher {
                 continue;
             }
 
-            int decryptedIndex = inverseA * (y - b);
+            int decryptedIndex = mod(inverseA * (y - b), n);
             result.append(alphabet.charAt(decryptedIndex));
         }
 
@@ -113,15 +113,19 @@ public class AffineCipher {
     }
 
     private int modInverse(int a, int n) {
-        a = ((a % n) + n) % n;
+        a = mod(a, n);
 
         for (int x = 1; x < n; x++) {
-            if ((a * x) % n == 1) {
+            if (mod(a * x, n) == 1) {
                 return x;
             }
         }
 
         throw new IllegalArgumentException("Không tìm được nghịch đảo modulo của a.");
+    }
+
+    private int mod(int value, int n) {
+        return ((value % n) + n) % n;
     }
 
     private int gcd(int a, int b) {
